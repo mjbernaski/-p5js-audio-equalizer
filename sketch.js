@@ -35,13 +35,11 @@ var amp;
 var duration;
 var bands = 64;
 
-// Available songs
-var songs = [
-  { name: 'Lotta Love', file: 'songs/lottalove.mp3' },
-  { name: 'Alive', file: 'songs/alive.mp3' }
-];
+// Available songs - loaded dynamically
+var songs = [];
 var currentSongIndex = 0;
 var songSelector;
+var songsLoaded = false;
 
 // Visualization modes
 var visualModes = ['Classic', 'Circular', 'Mirror', 'Frequency Colors'];
@@ -49,26 +47,22 @@ var currentMode = 0;
 var modeSelector;
 
 function preload() {
-  song = loadSound(songs[currentSongIndex].file);
+  // Songs will be loaded after setup via fetch
 }
 
 vOffset = 100; 
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  console.log('Preload completed');
+  console.log('Setup started');
   fft = new p5.FFT(0.9, bands);
   amp = new p5.Amplitude(0.1);
-  duration = song.duration();
   background(0);
 
   // Create song selector dropdown
   songSelector = createSelect();
   songSelector.position(10, 10);
-  for (let i = 0; i < songs.length; i++) {
-    songSelector.option(songs[i].name);
-  }
-  songSelector.selected(songs[currentSongIndex].name);
+  songSelector.option('Loading songs...');
   songSelector.changed(changeSong);
 
   // Style the selector
@@ -78,6 +72,7 @@ function setup() {
   songSelector.style('color', '#00ff00');
   songSelector.style('border', '2px solid #00ff00');
   songSelector.style('border-radius', '4px');
+  songSelector.style('max-width', '300px');
 
   // Create visualization mode selector
   modeSelector = createSelect();
@@ -95,16 +90,57 @@ function setup() {
   modeSelector.style('color', '#00ff00');
   modeSelector.style('border', '2px solid #00ff00');
   modeSelector.style('border-radius', '4px');
+
+  // Load songs from API
+  loadSongList();
+}
+
+function loadSongList() {
+  fetch('/api/songs')
+    .then(response => response.json())
+    .then(data => {
+      songs = data;
+      songsLoaded = true;
+
+      // Clear and populate song selector
+      songSelector.remove();
+      songSelector = createSelect();
+      songSelector.position(10, 10);
+
+      for (let i = 0; i < songs.length; i++) {
+        songSelector.option(songs[i].name);
+      }
+      songSelector.changed(changeSong);
+
+      // Style the selector
+      songSelector.style('padding', '8px');
+      songSelector.style('font-size', '14px');
+      songSelector.style('background-color', '#1a1a1a');
+      songSelector.style('color', '#00ff00');
+      songSelector.style('border', '2px solid #00ff00');
+      songSelector.style('border-radius', '4px');
+      songSelector.style('max-width', '300px');
+
+      console.log('Loaded ' + songs.length + ' songs');
+    })
+    .catch(err => {
+      console.error('Failed to load songs:', err);
+      songSelector.html('<option>Error loading songs</option>');
+    });
 }
 
 function mousePressed() {
-  console.log('Mouse Pressed'); 
+  console.log('Mouse Pressed');
+  if (!song) {
+    console.log('No song loaded yet');
+    return;
+  }
   if (song.isPlaying()) {
-    song.pause();  
+    song.pause();
   } else {
-  song.play(); 
-  song.rate(1); 
-}
+    song.play();
+    song.rate(1);
+  }
 }
 
 let offset=2; 
@@ -115,6 +151,16 @@ let scale = 0;
 
 function draw() {
   background(0);
+
+  // Show loading message if no song is loaded
+  if (!song) {
+    fill(0, 255, 0);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text('Select a song from the dropdown to begin', width/2, height/2);
+    return;
+  }
+
   var spectrum = fft.analyze();
 
   if (keepMax.length == 0) {
@@ -174,6 +220,7 @@ function drawClassic(spectrum) {
 }
 
 function drawWaveform() {
+  if (!song || !duration) return;
   push();
   noFill();
   x = map(song.currentTime(), 0, duration, 0, width);
