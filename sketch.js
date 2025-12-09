@@ -34,6 +34,7 @@ var fft;
 var amp;
 var duration;
 var bands = 64;
+var circularBands = 1024; // Higher resolution for circular mode
 
 // Available songs - loaded dynamically
 var songs = [];
@@ -52,10 +53,14 @@ function preload() {
 
 vOffset = 100; 
 
+var fftCircular; // Separate FFT for circular mode
+var keepMaxCircular = []; // Separate peak tracking for circular mode
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   console.log('Setup started');
   fft = new p5.FFT(0.9, bands);
+  fftCircular = new p5.FFT(0.9, circularBands);
   amp = new p5.Amplitude(0.1);
   background(0);
 
@@ -236,7 +241,15 @@ function drawWaveform() {
   pop();
 }
 
-function drawCircular(spectrum) {
+function drawCircular(ignoredSpectrum) {
+  // Use high-resolution FFT for circular mode
+  var spectrum = fftCircular.analyze();
+
+  // Initialize peak tracking array if needed
+  if (keepMaxCircular.length === 0) {
+    keepMaxCircular = new Array(spectrum.length).fill(0);
+  }
+
   push();
   translate(width/2, height/2);
 
@@ -248,10 +261,10 @@ function drawCircular(spectrum) {
     let amp = map(spectrum[i], 0, 256, 0, maxRadius - radius);
 
     // Update peak values
-    if (spectrum[i] > keepMax[i]) {
-      keepMax[i] = spectrum[i];
+    if (spectrum[i] > keepMaxCircular[i]) {
+      keepMaxCircular[i] = spectrum[i];
     } else {
-      keepMax[i] -= 0.1;
+      keepMaxCircular[i] -= 0.1;
     }
 
     let x1 = cos(angle) * radius;
@@ -260,21 +273,21 @@ function drawCircular(spectrum) {
     let y2 = sin(angle) * (radius + amp);
 
     stroke(0, 255, 0, 150);
-    strokeWeight(2);
+    strokeWeight(1);
     line(x1, y1, x2, y2);
 
     // Draw peak marker
-    let peakAmp = map(keepMax[i], 0, 256, 0, maxRadius - radius);
+    let peakAmp = map(keepMaxCircular[i], 0, 256, 0, maxRadius - radius);
     let px = cos(angle) * (radius + peakAmp);
     let py = sin(angle) * (radius + peakAmp);
     stroke(57, 255, 20);
-    strokeWeight(3);
+    strokeWeight(2);
     point(px, py);
 
-    // Draw frequency labels (every 8th band to avoid clutter in circular mode)
-    if (i % 8 === 0) {
+    // Draw frequency labels (every 128th band for high-res mode)
+    if (i % 128 === 0) {
       let nyquist = 22050;
-      let freq = (i / bands) * nyquist;
+      let freq = (i / circularBands) * nyquist;
       let label;
       if (freq >= 1000) {
         label = (freq / 1000).toFixed(1) + 'k';
@@ -418,8 +431,8 @@ function changeSong() {
     }
   }
 
-  // Stop current song and load new one
-  if (song.isPlaying()) {
+  // Stop current song if one is playing
+  if (song && song.isPlaying()) {
     song.stop();
   }
 
