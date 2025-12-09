@@ -165,6 +165,11 @@ function drawClassic(spectrum) {
     stroke(57, 255, 20);
     line(xPos, maxY, (width/bands) + xPos-offset, maxY);
     pop();
+
+    // Draw frequency labels (every 4th band to avoid clutter)
+    if (i % 4 === 0) {
+      drawFrequencyLabel(i, xPos, width/bands-offset);
+    }
   }
 }
 
@@ -218,6 +223,28 @@ function drawCircular(spectrum) {
     stroke(57, 255, 20);
     strokeWeight(3);
     point(px, py);
+
+    // Draw frequency labels (every 8th band to avoid clutter in circular mode)
+    if (i % 8 === 0) {
+      let nyquist = 22050;
+      let freq = (i / bands) * nyquist;
+      let label;
+      if (freq >= 1000) {
+        label = (freq / 1000).toFixed(1) + 'k';
+      } else {
+        label = Math.round(freq) + '';
+      }
+
+      let labelRadius = maxRadius + 15;
+      let lx = cos(angle) * labelRadius;
+      let ly = sin(angle) * labelRadius;
+
+      fill(0, 255, 0, 150);
+      noStroke();
+      textAlign(CENTER, CENTER);
+      textSize(9);
+      text(label, lx, ly);
+    }
   }
   pop();
 }
@@ -261,6 +288,11 @@ function drawMirror(spectrum) {
     // Bottom peaks
     line(xPos, height/2 + peakHeight, xPos + barWidth, height/2 + peakHeight);
     line(width - xPos - barWidth, height/2 + peakHeight, width - xPos, height/2 + peakHeight);
+
+    // Draw frequency labels (every 4th band)
+    if (i % 4 === 0) {
+      drawFrequencyLabel(i, xPos, barWidth);
+    }
   }
 
   // Center line
@@ -321,6 +353,11 @@ function drawFrequencyColors(spectrum) {
     strokeWeight(2);
     line(xPos, maxY, (width/bands) + xPos - offset, maxY);
     pop();
+
+    // Draw frequency labels (every 4th band)
+    if (i % 4 === 0) {
+      drawFrequencyLabel(i, xPos, width/bands - offset);
+    }
   }
 }
 
@@ -359,6 +396,30 @@ function changeMode() {
     }
   }
   console.log('Visualization mode: ' + visualModes[currentMode]);
+}
+
+function drawFrequencyLabel(bandIndex, xPos, barWidth) {
+  // Calculate frequency for this band
+  // Sample rate is typically 44100 Hz, Nyquist = 22050 Hz
+  let nyquist = 22050;
+  let freq = (bandIndex / bands) * nyquist;
+
+  // Format the frequency
+  let label;
+  if (freq >= 1000) {
+    label = (freq / 1000).toFixed(1) + 'k';
+  } else {
+    label = Math.round(freq) + '';
+  }
+
+  // Draw the label
+  push();
+  fill(0, 255, 0, 150);
+  noStroke();
+  textAlign(CENTER);
+  textSize(10);
+  text(label, xPos + barWidth/2, height - 5);
+  pop();
 }
 
 function windowResized() {
